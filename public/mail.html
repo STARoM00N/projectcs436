@@ -249,22 +249,20 @@
                                 </div>
                             `;
 
-                            // Enable hover effect for profile picture
                             const profilePictureWrapper = document.querySelector(".profile-picture-wrapper");
                             const hoverText = document.querySelector(".hover-text");
                             const profileImageInput = document.getElementById("profile-image-input");
 
                             profilePictureWrapper.addEventListener("mouseover", () => {
-                                hoverText.style.display = "block"; // Show hover text
+                                hoverText.style.display = "block";
                             });
 
                             profilePictureWrapper.addEventListener("mouseout", () => {
-                                hoverText.style.display = "none"; // Hide hover text
+                                hoverText.style.display = "none";
                             });
 
-                            // Enable profile picture upload
                             profilePictureWrapper.addEventListener("click", () => {
-                                profileImageInput.click(); // Trigger file input dialog
+                                profileImageInput.click();
                             });
 
                             profileImageInput.addEventListener("change", async (e) => {
@@ -283,7 +281,13 @@
                                     const result = await response.json();
                                     if (result.success) {
                                         alert("Profile picture updated successfully!");
-                                        document.getElementById("profile-picture").src = result.url; // Update the displayed profile picture
+
+                                        // อัปเดตรูปภาพในหน้าโปรไฟล์
+                                        document.getElementById("profile-picture").src = result.url;
+
+                                        // อัปเดตรูปภาพใน Navbar และ Dropdown
+                                        document.getElementById("navbar-profile-image").src = result.url;
+                                        document.getElementById("dropdown-profile-image").src = result.url;
                                     } else {
                                         alert("Failed to update profile picture.");
                                     }
@@ -388,7 +392,10 @@
                                             <p class="message-preview">${msg.message.slice(0, 50) || 'No Content'}...</p>
                                             <small class="message-time">${new Date(msg.sent_at).toLocaleString()}</small>
                                         </div>
-                                        <button class="delete-button" onclick="deleteMessage(event, ${msg.id})">🗑️</button>
+                                        <!-- เปลี่ยนปุ่มลบ -->
+                                        <button class="delete-button" onclick="deleteMessage(event, ${msg.id})">
+                                            <i class="fas fa-trash"></i> <!-- ใช้ Font Awesome -->
+                                        </button>
                                     </div>
                                 `).join('')}
                             </div>
@@ -527,6 +534,20 @@
                 subject: formData.get('subject'),
                 message: formData.get('message'),
             };
+
+            // ตรวจสอบว่า recipient ไม่ใช่อีเมลของตัวเอง
+            const currentUserEmail = 'your_email@example.com'; // ใส่อีเมลของผู้ใช้ที่ล็อกอิน
+            if (data.recipient === currentUserEmail) {
+                alert('You cannot send an email to yourself.');
+                return;
+            }
+
+            // ตรวจสอบว่าอีเมลผู้รับมีรูปแบบที่ถูกต้อง
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(data.recipient)) {
+                alert('Invalid email address.');
+                return;
+            }
 
             try {
                 const response = await fetch('/send_email', {

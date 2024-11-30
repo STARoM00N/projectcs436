@@ -7,6 +7,7 @@ const session = require('express-session');
 const multer = require('multer');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const http = require('http');
+const dns = require('dns/promises'); // ใช้ promises API สำหรับการตรวจสอบ DNS
 
 const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
 const app = express();
@@ -387,6 +388,30 @@ app.post('/send_email', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Sender, recipient, and message are required.' });
     }
 
+    // ตรวจสอบว่าไม่สามารถส่งอีเมลถึงตัวเอง
+    if (recipient === sender) {
+        return res.status(400).json({ success: false, message: 'You cannot send an email to yourself.' });
+    }
+
+    // ตรวจสอบว่า recipient มีอยู่ในฐานข้อมูลหรือไม่
+    try {
+        const request = new mssql.Request();
+        request.input('recipient', mssql.NVarChar, recipient);
+
+        const userCheckResult = await request.query(`
+            SELECT COUNT(*) AS userCount FROM dbo.users WHERE email = @recipient
+        `);
+
+        const userCount = userCheckResult.recordset[0]?.userCount || 0;
+
+        if (userCount === 0) {
+            return res.status(400).json({ success: false, message: 'Recipient email does not exist in the system.' });
+        }
+    } catch (err) {
+        console.error('Error checking recipient in database:', err);
+        return res.status(500).json({ success: false, message: 'Error checking recipient in database.' });
+    }
+
     try {
         // บันทึกเมลลงฐานข้อมูล
         const request = new mssql.Request();
@@ -404,7 +429,7 @@ app.post('/send_email', async (req, res) => {
         // Log การส่งเมล
         console.log(`Email sent from ${sender} to ${recipient}`);
 
-        // ส่ง Event แจ้งเตือนไปยังผู้ส่งโดยไม่สนใจว่าผู้รับออนไลน์หรือไม่
+        // ส่ง Event แจ้งเตือน
         if (userSockets[recipient]) {
             console.log(`Recipient ${recipient} is online. Sending new_mail notification.`);
             io.to(userSockets[recipient]).emit('new_mail', {
@@ -414,7 +439,7 @@ app.post('/send_email', async (req, res) => {
             });
         } else {
             console.log(`Recipient ${recipient} is not online. No notification sent.`);
-        }        
+        }
 
         res.json({ success: true, message: 'Message sent successfully' });
     } catch (err) {
