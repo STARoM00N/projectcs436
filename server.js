@@ -224,7 +224,7 @@ app.post('/signin', async (req, res) => {
         const result = await request.query('SELECT * FROM users WHERE username = @username');
 
         if (result.recordset.length === 0) {
-            return res.status(401).json({ success: false, message: 'User not found' });
+            return res.status(401).json({ success: false, message: 'User or Password incorrect' });
         }
 
         const user = result.recordset[0];
@@ -239,7 +239,7 @@ app.post('/signin', async (req, res) => {
 
             res.json({ success: true, message: 'Login successful' });
         } else {
-            res.status(401).json({ success: false, message: 'Incorrect password' });
+            res.status(401).json({ success: false, message: 'User or Password incorrect' });
         }
     } catch (err) {
         console.error('Error during login:', err);
